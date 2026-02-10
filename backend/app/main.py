@@ -6,6 +6,7 @@ from app.core.middleware import RequestIDMiddleware
 from app.routers import (
     accounts, auth, bills, cheat_codes, coach, consent, forecast, goals,
     learn, money_graph, onboarding, practice, recurring, transactions, user,
+    vault,
 )
 
 app = FastAPI(
@@ -37,6 +38,7 @@ app.include_router(forecast.router)
 app.include_router(bills.router)
 app.include_router(learn.router)
 app.include_router(practice.router)
+app.include_router(vault.router)
 
 
 @app.get("/health")

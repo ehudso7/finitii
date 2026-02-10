@@ -4,7 +4,7 @@ Per PRD:
 - User marked as deleted
 - All PII hard-deleted
 - Audit trail retained but anonymized (user_id preserved for chain, PII in detail scrubbed)
-- Vault items fully deleted (enforced when Vault exists in Phase 8)
+- Vault items fully deleted (DB rows + storage files)
 - Sessions revoked
 - Consent records deleted (PII)
 """
@@ -19,7 +19,7 @@ from app.models.audit import AuditLogEvent
 from app.models.consent import ConsentRecord
 from app.models.session import Session
 from app.models.user import User, UserStatus
-from app.services import audit_service
+from app.services import audit_service, vault_service
 
 # PII fields in audit detail that must be scrubbed
 _PII_DETAIL_KEYS = {"email", "ip_address", "user_agent", "password"}
@@ -66,12 +66,15 @@ async def delete_user_data(
         .values(revoked=True)
     )
 
-    # 3. Hard-delete consent records (PII)
+    # 3. Hard-delete vault items (DB rows + storage files)
+    await vault_service.delete_user_vault_items(db, user_id=user_id)
+
+    # 4. Hard-delete consent records (PII)
     await db.execute(
         delete(ConsentRecord).where(ConsentRecord.user_id == user_id)
     )
 
-    # 4. Anonymize audit trail: scrub PII from detail, clear ip_address
+    # 5. Anonymize audit trail: scrub PII from detail, clear ip_address
     result = await db.execute(
         select(AuditLogEvent).where(AuditLogEvent.user_id == user_id)
     )
@@ -80,7 +83,7 @@ async def delete_user_data(
         event.detail = _anonymize_detail(event.detail)
         event.ip_address = None
 
-    # 5. Soft-delete user: clear PII, mark as deleted
+    # 6. Soft-delete user: clear PII, mark as deleted
     user.email = f"deleted-{user_id}@deleted.local"
     user.password_hash = "DELETED"
     user.status = UserStatus.deleted
