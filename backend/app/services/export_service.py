@@ -165,7 +165,9 @@ async def export_user_data(
         {
             "id": _serialize_uuid(uc.id),
             "constraint_type": uc.constraint_type,
-            "value": uc.value,
+            "label": uc.label,
+            "amount": str(uc.amount) if uc.amount is not None else None,
+            "notes": uc.notes,
         }
         for uc in result.scalars().all()
     ]
@@ -178,8 +180,12 @@ async def export_user_data(
     onboarding_data = None
     if onboarding:
         onboarding_data = {
-            "current_step": onboarding.current_step,
-            "completed_steps": onboarding.completed_steps,
+            "current_step": onboarding.current_step.value if hasattr(onboarding.current_step, 'value') else str(onboarding.current_step),
+            "consent_completed_at": onboarding.consent_completed_at.isoformat() if onboarding.consent_completed_at else None,
+            "account_completed_at": onboarding.account_completed_at.isoformat() if onboarding.account_completed_at else None,
+            "goals_completed_at": onboarding.goals_completed_at.isoformat() if onboarding.goals_completed_at else None,
+            "top_3_completed_at": onboarding.top_3_completed_at.isoformat() if onboarding.top_3_completed_at else None,
+            "first_win_completed_at": onboarding.first_win_completed_at.isoformat() if onboarding.first_win_completed_at else None,
         }
 
     # Recommendations (Phase 3)
@@ -234,9 +240,9 @@ async def export_user_data(
     forecasts_data = [
         {
             "id": _serialize_uuid(f.id),
-            "safe_to_spend_today": f.safe_to_spend_today,
-            "safe_to_spend_week": f.safe_to_spend_week,
-            "confidence": f.confidence,
+            "safe_to_spend_today": _serialize_decimal(f.safe_to_spend_today),
+            "safe_to_spend_week": _serialize_decimal(f.safe_to_spend_week),
+            "confidence": f.confidence.value if hasattr(f.confidence, 'value') else str(f.confidence),
             "urgency_score": f.urgency_score,
             "computed_at": _serialize_datetime(f.computed_at),
         }
