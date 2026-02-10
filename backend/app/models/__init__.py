@@ -13,6 +13,7 @@ from app.models.onboarding import OnboardingState  # noqa: F401
 from app.models.goal import Goal, UserConstraint  # noqa: F401
 from app.models.cheat_code import (  # noqa: F401
     CheatCodeDefinition,
+    CheatCodeOutcome,
     Recommendation,
     CheatCodeRun,
     StepRun,

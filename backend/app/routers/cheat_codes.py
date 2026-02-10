@@ -1,4 +1,4 @@
-"""Cheat code routes: Top 3, start run, complete step, get run status."""
+"""Cheat code routes: Top 3, lifecycle (start/pause/resume/abandon/archive), outcomes."""
 
 import uuid as uuid_mod
 
@@ -11,14 +11,17 @@ from app.dependencies import get_db
 from app.models.cheat_code import CheatCodeDefinition, Recommendation
 from app.models.user import User
 from app.schemas.cheat_code import (
+    AbandonRunRequest,
     CheatCodeRead,
     CompleteStepRequest,
+    OutcomeRead,
     RecommendationRead,
+    ReportOutcomeRequest,
     RunRead,
     StartRunRequest,
     StepRunRead,
 )
-from app.services import cheat_code_service, ranking_service
+from app.services import cheat_code_service, outcome_service, ranking_service
 from app.services.cheat_code_seed import seed_cheat_codes
 
 router = APIRouter(prefix="/cheat-codes", tags=["cheat-codes"])
@@ -265,5 +268,235 @@ async def get_run(
                 "notes": s.notes,
             }
             for s in steps
+        ],
+    }
+
+
+@router.get("/runs")
+async def list_runs(
+    status: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List all runs for the current user, optionally filtered by status."""
+    from app.models.cheat_code import RunStatus
+
+    run_status = None
+    if status:
+        try:
+            run_status = RunStatus(status)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
+
+    runs = await cheat_code_service.get_user_runs(
+        db, current_user.id, status=run_status
+    )
+
+    result = []
+    for run in runs:
+        def_result = await db.execute(
+            select(CheatCodeDefinition).where(
+                CheatCodeDefinition.id == run.cheat_code_id
+            )
+        )
+        defn = def_result.scalar_one()
+        result.append({
+            "id": str(run.id),
+            "status": run.status.value,
+            "started_at": run.started_at.isoformat() if run.started_at else None,
+            "completed_at": run.completed_at.isoformat() if run.completed_at else None,
+            "total_steps": run.total_steps,
+            "completed_steps": run.completed_steps,
+            "cheat_code": {
+                "id": str(defn.id),
+                "code": defn.code,
+                "title": defn.title,
+            },
+        })
+    return result
+
+
+@router.post("/runs/{run_id}/pause")
+async def pause_run(
+    run_id: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Pause an in-progress run."""
+    ip = request.client.host if request.client else None
+    try:
+        rid = uuid_mod.UUID(run_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid run_id")
+
+    run = await cheat_code_service.pause_run(
+        db, run_id=rid, user_id=current_user.id, ip_address=ip
+    )
+    return {"id": str(run.id), "status": run.status.value}
+
+
+@router.post("/runs/{run_id}/resume")
+async def resume_run(
+    run_id: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Resume a paused run."""
+    ip = request.client.host if request.client else None
+    try:
+        rid = uuid_mod.UUID(run_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid run_id")
+
+    run = await cheat_code_service.resume_run(
+        db, run_id=rid, user_id=current_user.id, ip_address=ip
+    )
+    return {"id": str(run.id), "status": run.status.value}
+
+
+@router.post("/runs/{run_id}/abandon")
+async def abandon_run(
+    run_id: str,
+    request: Request,
+    body: AbandonRunRequest | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Abandon a run."""
+    ip = request.client.host if request.client else None
+    try:
+        rid = uuid_mod.UUID(run_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid run_id")
+
+    reason = body.reason if body else None
+    try:
+        run = await cheat_code_service.abandon_run(
+            db, run_id=rid, user_id=current_user.id, reason=reason, ip_address=ip
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return {"id": str(run.id), "status": run.status.value}
+
+
+@router.post("/runs/{run_id}/archive")
+async def archive_run(
+    run_id: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Archive a completed run."""
+    ip = request.client.host if request.client else None
+    try:
+        rid = uuid_mod.UUID(run_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid run_id")
+
+    try:
+        run = await cheat_code_service.archive_run(
+            db, run_id=rid, user_id=current_user.id, ip_address=ip
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return {"id": str(run.id), "status": run.status.value}
+
+
+@router.post("/runs/{run_id}/outcome", status_code=201)
+async def report_outcome(
+    run_id: str,
+    body: ReportOutcomeRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Report the outcome of a completed cheat code run."""
+    ip = request.client.host if request.client else None
+    try:
+        rid = uuid_mod.UUID(run_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid run_id")
+
+    try:
+        outcome = await outcome_service.report_outcome(
+            db,
+            run_id=rid,
+            user_id=current_user.id,
+            reported_savings=body.reported_savings,
+            reported_savings_period=body.reported_savings_period,
+            notes=body.notes,
+            user_satisfaction=body.user_satisfaction,
+            ip_address=ip,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return {
+        "id": str(outcome.id),
+        "outcome_type": outcome.outcome_type.value,
+        "reported_savings": str(outcome.reported_savings) if outcome.reported_savings else None,
+        "reported_savings_period": outcome.reported_savings_period,
+        "verification_status": outcome.verification_status.value,
+        "user_satisfaction": outcome.user_satisfaction,
+    }
+
+
+@router.get("/runs/{run_id}/outcome")
+async def get_outcome(
+    run_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get outcome for a specific run."""
+    try:
+        rid = uuid_mod.UUID(run_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid run_id")
+
+    outcome = await outcome_service.get_outcome_for_run(db, rid)
+    if not outcome:
+        raise HTTPException(status_code=404, detail="No outcome found for this run")
+
+    return {
+        "id": str(outcome.id),
+        "run_id": str(outcome.run_id),
+        "outcome_type": outcome.outcome_type.value,
+        "reported_savings": str(outcome.reported_savings) if outcome.reported_savings else None,
+        "reported_savings_period": outcome.reported_savings_period,
+        "inferred_savings": str(outcome.inferred_savings) if outcome.inferred_savings else None,
+        "inferred_method": outcome.inferred_method,
+        "verification_status": outcome.verification_status.value,
+        "notes": outcome.notes,
+        "user_satisfaction": outcome.user_satisfaction,
+    }
+
+
+@router.get("/outcomes/summary")
+async def outcomes_summary(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get a summary of all outcomes for the current user."""
+    outcomes = await outcome_service.get_outcomes_for_user(db, current_user.id)
+    total_savings = await outcome_service.get_total_reported_savings(
+        db, current_user.id
+    )
+
+    return {
+        "total_outcomes": len(outcomes),
+        "total_reported_savings": str(total_savings),
+        "outcomes": [
+            {
+                "id": str(o.id),
+                "run_id": str(o.run_id),
+                "outcome_type": o.outcome_type.value,
+                "reported_savings": str(o.reported_savings) if o.reported_savings else None,
+                "user_satisfaction": o.user_satisfaction,
+            }
+            for o in outcomes
         ],
     }

@@ -11,12 +11,12 @@ from app.services.cheat_code_seed import seed_cheat_codes
 @pytest.mark.asyncio
 async def test_seed_creates_cheat_codes(db_session: AsyncSession):
     definitions = await seed_cheat_codes(db_session)
-    assert len(definitions) == 5
+    assert len(definitions) == 25
 
     # Verify all are in DB
     result = await db_session.execute(select(CheatCodeDefinition))
     all_defs = result.scalars().all()
-    assert len(all_defs) == 5
+    assert len(all_defs) == 25
 
 
 @pytest.mark.asyncio
@@ -26,7 +26,7 @@ async def test_seed_is_idempotent(db_session: AsyncSession):
 
     result = await db_session.execute(select(CheatCodeDefinition))
     all_defs = result.scalars().all()
-    assert len(all_defs) == 5  # Still 5, not 10
+    assert len(all_defs) == 25  # Still 25, not 50
 
 
 @pytest.mark.asyncio

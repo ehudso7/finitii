@@ -1,6 +1,6 @@
-"""Cheat Code service: start run, complete step, lifecycle management.
+"""Cheat Code service: full lifecycle management.
 
-Lifecycle: Recommend → Start → Complete → Archive
+Lifecycle: Recommend → Start → Pause/Resume → Complete → Archive/Abandon
 All state transitions audit-logged.
 """
 
@@ -219,6 +219,114 @@ async def get_user_runs(
     return list(result.scalars().all())
 
 
+async def pause_run(
+    db: AsyncSession,
+    *,
+    run_id: uuid.UUID,
+    user_id: uuid.UUID,
+    ip_address: str | None = None,
+) -> CheatCodeRun:
+    """Pause an in-progress run."""
+    result = await db.execute(
+        select(CheatCodeRun).where(
+            CheatCodeRun.id == run_id,
+            CheatCodeRun.user_id == user_id,
+            CheatCodeRun.status == RunStatus.in_progress,
+        )
+    )
+    run = result.scalar_one()
+    run.status = RunStatus.paused
+    await db.flush()
+
+    await audit_service.log_event(
+        db,
+        user_id=user_id,
+        event_type="cheatcode.run_paused",
+        entity_type="CheatCodeRun",
+        entity_id=run.id,
+        action="pause",
+        detail={"completed_steps": run.completed_steps, "total_steps": run.total_steps},
+        ip_address=ip_address,
+    )
+
+    return run
+
+
+async def resume_run(
+    db: AsyncSession,
+    *,
+    run_id: uuid.UUID,
+    user_id: uuid.UUID,
+    ip_address: str | None = None,
+) -> CheatCodeRun:
+    """Resume a paused run."""
+    result = await db.execute(
+        select(CheatCodeRun).where(
+            CheatCodeRun.id == run_id,
+            CheatCodeRun.user_id == user_id,
+            CheatCodeRun.status == RunStatus.paused,
+        )
+    )
+    run = result.scalar_one()
+    run.status = RunStatus.in_progress
+    await db.flush()
+
+    await audit_service.log_event(
+        db,
+        user_id=user_id,
+        event_type="cheatcode.run_resumed",
+        entity_type="CheatCodeRun",
+        entity_id=run.id,
+        action="resume",
+        ip_address=ip_address,
+    )
+
+    return run
+
+
+async def abandon_run(
+    db: AsyncSession,
+    *,
+    run_id: uuid.UUID,
+    user_id: uuid.UUID,
+    reason: str | None = None,
+    ip_address: str | None = None,
+) -> CheatCodeRun:
+    """Abandon a run (user gives up or decides not to complete)."""
+    result = await db.execute(
+        select(CheatCodeRun).where(
+            CheatCodeRun.id == run_id,
+            CheatCodeRun.user_id == user_id,
+        )
+    )
+    run = result.scalar_one()
+
+    if run.status in (RunStatus.completed, RunStatus.archived):
+        raise ValueError(
+            f"Cannot abandon run with status '{run.status.value}'"
+        )
+
+    run.status = RunStatus.abandoned
+    await db.flush()
+
+    await audit_service.log_event(
+        db,
+        user_id=user_id,
+        event_type="cheatcode.run_abandoned",
+        entity_type="CheatCodeRun",
+        entity_id=run.id,
+        action="abandon",
+        detail={
+            "reason": reason,
+            "completed_steps": run.completed_steps,
+            "total_steps": run.total_steps,
+        },
+        ip_address=ip_address,
+    )
+
+    return run
+
+
 async def archive_run(
     db: AsyncSession,
     *,
@@ -234,6 +342,12 @@ async def archive_run(
         )
     )
     run = result.scalar_one()
+
+    if run.status != RunStatus.completed:
+        raise ValueError(
+            f"Cannot archive run with status '{run.status.value}', must be 'completed'"
+        )
+
     run.status = RunStatus.archived
     await db.flush()
 

@@ -61,3 +61,29 @@ class StartRunRequest(BaseModel):
 class CompleteStepRequest(BaseModel):
     step_number: int
     notes: str | None = None
+
+
+class AbandonRunRequest(BaseModel):
+    reason: str | None = None
+
+
+class ReportOutcomeRequest(BaseModel):
+    reported_savings: Decimal | None = None
+    reported_savings_period: str | None = None
+    notes: str | None = None
+    user_satisfaction: int | None = None
+
+
+class OutcomeRead(BaseModel):
+    id: uuid.UUID
+    run_id: uuid.UUID
+    outcome_type: str
+    reported_savings: Decimal | None = None
+    reported_savings_period: str | None = None
+    inferred_savings: Decimal | None = None
+    inferred_method: str | None = None
+    verification_status: str
+    notes: str | None = None
+    user_satisfaction: int | None = None
+
+    model_config = {"from_attributes": True}

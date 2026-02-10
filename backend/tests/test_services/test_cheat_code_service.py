@@ -102,12 +102,19 @@ async def test_complete_all_steps_completes_run(db_session: AsyncSession):
 
 @pytest.mark.asyncio
 async def test_archive_run(db_session: AsyncSession):
+    """Archive requires completed status (Phase 3 rule)."""
     user = await _create_user(db_session)
     rec = await _setup_recommendation(db_session, user)
 
     run = await cheat_code_service.start_run(
         db_session, user_id=user.id, recommendation_id=rec.id
     )
+
+    # Complete all steps first so run becomes completed
+    for i in range(1, run.total_steps + 1):
+        await cheat_code_service.complete_step(
+            db_session, run_id=run.id, user_id=user.id, step_number=i
+        )
 
     archived = await cheat_code_service.archive_run(
         db_session, run_id=run.id, user_id=user.id

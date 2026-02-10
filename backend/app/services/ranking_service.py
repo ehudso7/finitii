@@ -19,7 +19,10 @@ from app.models.cheat_code import (
     CheatCodeCategory,
     CheatCodeDefinition,
     CheatCodeDifficulty,
+    CheatCodeOutcome,
+    CheatCodeRun,
     Recommendation,
+    RunStatus,
 )
 from app.models.goal import Goal, GoalType
 from app.models.recurring import Confidence, RecurringPattern
@@ -191,12 +194,55 @@ async def compute_top_3(
     if not definitions:
         return []
 
+    # Phase 3: exclude codes user has already completed or has in progress
+    run_result = await db.execute(
+        select(CheatCodeRun).where(
+            CheatCodeRun.user_id == user_id,
+            CheatCodeRun.status.in_([
+                RunStatus.in_progress,
+                RunStatus.paused,
+                RunStatus.completed,
+                RunStatus.archived,
+            ]),
+        )
+    )
+    active_runs = run_result.scalars().all()
+    excluded_code_ids = {r.cheat_code_id for r in active_runs}
+
+    # Filter definitions to exclude already-used codes
+    eligible_definitions = [d for d in definitions if d.id not in excluded_code_ids]
+
+    # Fall back to all definitions if filtering leaves too few
+    if len(eligible_definitions) < 3:
+        eligible_definitions = definitions
+
+    # Phase 3: get past outcomes to factor into scoring
+    outcome_result = await db.execute(
+        select(CheatCodeOutcome).where(CheatCodeOutcome.user_id == user_id)
+    )
+    past_outcomes = list(outcome_result.scalars().all())
+    total_past_savings = sum(
+        o.reported_savings for o in past_outcomes if o.reported_savings
+    )
+
     # Score each definition
     scored: list[tuple[float, str, str, dict, CheatCodeDefinition]] = []
-    for defn in definitions:
+    for defn in eligible_definitions:
         score, confidence, template_key, template_inputs = _score_cheat_code(
             defn, user_goals, recurring_patterns, category_spend
         )
+
+        # Phase 3: boost codes in categories where past outcomes were positive
+        for outcome in past_outcomes:
+            if outcome.reported_savings and outcome.reported_savings > 0:
+                # Find the run's cheat code category
+                for run in active_runs:
+                    if run.id == outcome.run_id:
+                        for d in definitions:
+                            if d.id == run.cheat_code_id and d.category == defn.category:
+                                score += 5  # Small category affinity boost
+                        break
+
         scored.append((score, confidence, template_key, template_inputs, defn))
 
     # Sort by score descending

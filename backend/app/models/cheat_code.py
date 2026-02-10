@@ -30,8 +30,21 @@ class CheatCodeCategory(str, enum.Enum):
 class RunStatus(str, enum.Enum):
     not_started = "not_started"
     in_progress = "in_progress"
+    paused = "paused"
     completed = "completed"
+    abandoned = "abandoned"
     archived = "archived"
+
+
+class OutcomeType(str, enum.Enum):
+    user_reported = "user_reported"
+    inferred = "inferred"
+
+
+class VerificationStatus(str, enum.Enum):
+    unverified = "unverified"
+    verified = "verified"
+    disputed = "disputed"
 
 
 class CheatCodeDefinition(Base):
@@ -106,7 +119,7 @@ class CheatCodeRun(TimestampMixin, Base):
         ForeignKey("cheat_code_definitions.id"), nullable=False
     )
     recommendation_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("recommendations.id"), nullable=True
+        ForeignKey("recommendations.id", ondelete="SET NULL"), nullable=True
     )
     status: Mapped[RunStatus] = mapped_column(
         Enum(RunStatus, native_enum=False),
@@ -145,3 +158,45 @@ class StepRun(Base):
         DateTime(timezone=True), nullable=True
     )
     notes: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+
+
+class CheatCodeOutcome(TimestampMixin, Base):
+    """Outcome of a completed cheat code run.
+
+    Captures both user-reported and inferred savings/results.
+    No automation of money movement — outcome is informational only.
+    """
+
+    __tablename__ = "cheat_code_outcomes"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=generate_uuid)
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("cheat_code_runs.id"), nullable=False, unique=True, index=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id"), nullable=False, index=True
+    )
+    outcome_type: Mapped[OutcomeType] = mapped_column(
+        Enum(OutcomeType, native_enum=False), nullable=False
+    )
+    reported_savings: Mapped[Decimal | None] = mapped_column(
+        Numeric(precision=14, scale=2), nullable=True
+    )
+    reported_savings_period: Mapped[str | None] = mapped_column(
+        String(50), nullable=True  # "monthly", "one_time", "annual"
+    )
+    inferred_savings: Mapped[Decimal | None] = mapped_column(
+        Numeric(precision=14, scale=2), nullable=True
+    )
+    inferred_method: Mapped[str | None] = mapped_column(
+        String(255), nullable=True  # e.g. "recurring_pattern_removed"
+    )
+    verification_status: Mapped[VerificationStatus] = mapped_column(
+        Enum(VerificationStatus, native_enum=False),
+        default=VerificationStatus.unverified,
+        nullable=False,
+    )
+    notes: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    user_satisfaction: Mapped[int | None] = mapped_column(
+        Integer, nullable=True  # 1-5 rating
+    )

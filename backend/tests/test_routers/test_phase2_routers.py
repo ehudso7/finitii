@@ -142,7 +142,7 @@ async def test_seed_cheat_codes(client: AsyncClient, db_session: AsyncSession):
 
     resp = await client.post("/cheat-codes/seed", headers=headers)
     assert resp.status_code == 200
-    assert resp.json()["seeded"] == 5
+    assert resp.json()["seeded"] == 25
 
 
 @pytest.mark.asyncio
