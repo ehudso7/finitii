@@ -19,3 +19,4 @@ from app.models.cheat_code import (  # noqa: F401
     StepRun,
 )
 from app.models.forecast import ForecastSnapshot  # noqa: F401
+from app.models.coach_memory import CoachMemory  # noqa: F401
