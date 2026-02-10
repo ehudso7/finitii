@@ -5,7 +5,7 @@ from app.core.errors import register_error_handlers
 from app.core.middleware import RequestIDMiddleware
 from app.routers import (
     accounts, auth, bills, cheat_codes, coach, consent, forecast, goals,
-    money_graph, onboarding, recurring, transactions, user,
+    learn, money_graph, onboarding, practice, recurring, transactions, user,
 )
 
 app = FastAPI(
@@ -35,6 +35,8 @@ app.include_router(cheat_codes.router)
 app.include_router(coach.router)
 app.include_router(forecast.router)
 app.include_router(bills.router)
+app.include_router(learn.router)
+app.include_router(practice.router)
 
 
 @app.get("/health")

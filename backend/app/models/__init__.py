@@ -20,3 +20,5 @@ from app.models.cheat_code import (  # noqa: F401
 )
 from app.models.forecast import ForecastSnapshot  # noqa: F401
 from app.models.coach_memory import CoachMemory  # noqa: F401
+from app.models.learn import LessonDefinition, LessonProgress  # noqa: F401
+from app.models.practice import ScenarioDefinition, ScenarioRun  # noqa: F401
