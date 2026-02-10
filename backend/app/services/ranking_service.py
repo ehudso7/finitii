@@ -5,6 +5,7 @@ PRD ranking rules:
 2. All recommendations must be explainable (template + inputs)
 3. At least one ≤10-min quick win required in Top 3
 4. Rank by potential impact, user goals, and confidence
+5. Phase 4: Forecast urgency may influence ranking but CANNOT override confidence rules
 
 Explanation templates ensure all numbers are explainable and conservative.
 """
@@ -24,6 +25,7 @@ from app.models.cheat_code import (
     Recommendation,
     RunStatus,
 )
+from app.models.forecast import ForecastSnapshot
 from app.models.goal import Goal, GoalType
 from app.models.recurring import Confidence, RecurringPattern
 from app.services import audit_service
@@ -68,10 +70,12 @@ def _score_cheat_code(
     user_goals: list[Goal],
     recurring_patterns: list[RecurringPattern],
     category_spend: dict[str, Decimal],
+    urgency_score: int = 0,
 ) -> tuple[float, str, str, dict]:
     """Score a cheat code for a user. Returns (score, confidence, template_key, template_inputs).
 
     Higher score = better recommendation.
+    Phase 4: urgency_score influences ranking but CANNOT change confidence.
     """
     score = 0.0
     confidence = "medium"
@@ -132,6 +136,21 @@ def _score_cheat_code(
     else:
         confidence = "medium"  # Never low in Top 3 (PRD rule)
 
+    # Phase 4: Forecast urgency influences score but NOT confidence
+    # High urgency boosts cost-saving/quick-win codes
+    if urgency_score > 0:
+        urgency_boost = urgency_score * 0.15  # Max +15 points at urgency=100
+        # Amplify boost for save_money and reduce_spending when urgent
+        if definition.category in (
+            CheatCodeCategory.save_money,
+            CheatCodeCategory.reduce_spending,
+        ):
+            urgency_boost *= 1.5
+        # Quick wins get extra urgency boost (act now)
+        if definition.difficulty == CheatCodeDifficulty.quick_win:
+            urgency_boost *= 1.3
+        score += urgency_boost
+
     return score, confidence, template_key, template_inputs
 
 
@@ -164,6 +183,16 @@ async def compute_top_3(
         )
     )
     recurring_patterns = list(pattern_result.scalars().all())
+
+    # Phase 4: Get latest forecast urgency (influences scoring, not confidence)
+    forecast_result = await db.execute(
+        select(ForecastSnapshot)
+        .where(ForecastSnapshot.user_id == user_id)
+        .order_by(ForecastSnapshot.computed_at.desc())
+        .limit(1)
+    )
+    latest_forecast = forecast_result.scalar_one_or_none()
+    urgency_score = latest_forecast.urgency_score if latest_forecast else 0
 
     # Get category spend from money graph (simplified: query transactions)
     from app.models.transaction import Transaction, TransactionType
@@ -229,7 +258,7 @@ async def compute_top_3(
     scored: list[tuple[float, str, str, dict, CheatCodeDefinition]] = []
     for defn in eligible_definitions:
         score, confidence, template_key, template_inputs = _score_cheat_code(
-            defn, user_goals, recurring_patterns, category_spend
+            defn, user_goals, recurring_patterns, category_spend, urgency_score
         )
 
         # Phase 3: boost codes in categories where past outcomes were positive

@@ -18,3 +18,4 @@ from app.models.cheat_code import (  # noqa: F401
     CheatCodeRun,
     StepRun,
 )
+from app.models.forecast import ForecastSnapshot  # noqa: F401
