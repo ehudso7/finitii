@@ -3,7 +3,10 @@ from fastapi import FastAPI
 from app.config import settings
 from app.core.errors import register_error_handlers
 from app.core.middleware import RequestIDMiddleware
-from app.routers import accounts, auth, consent, money_graph, recurring, transactions, user
+from app.routers import (
+    accounts, auth, cheat_codes, coach, consent, goals,
+    money_graph, onboarding, recurring, transactions, user,
+)
 
 app = FastAPI(
     title=settings.app_name,
@@ -26,6 +29,10 @@ app.include_router(accounts.router)
 app.include_router(transactions.router)
 app.include_router(recurring.router)
 app.include_router(money_graph.router)
+app.include_router(onboarding.router)
+app.include_router(goals.router)
+app.include_router(cheat_codes.router)
+app.include_router(coach.router)
 
 
 @app.get("/health")
