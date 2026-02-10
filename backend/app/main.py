@@ -4,7 +4,7 @@ from app.config import settings
 from app.core.errors import register_error_handlers
 from app.core.middleware import RequestIDMiddleware
 from app.routers import (
-    accounts, auth, cheat_codes, coach, consent, forecast, goals,
+    accounts, auth, bills, cheat_codes, coach, consent, forecast, goals,
     money_graph, onboarding, recurring, transactions, user,
 )
 
@@ -34,6 +34,7 @@ app.include_router(goals.router)
 app.include_router(cheat_codes.router)
 app.include_router(coach.router)
 app.include_router(forecast.router)
+app.include_router(bills.router)
 
 
 @app.get("/health")

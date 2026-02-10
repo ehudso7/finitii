@@ -106,15 +106,17 @@ def _score_cheat_code(
         score += float(definition.potential_savings_max) * 0.5
 
     # Subscription cancel gets bonus if user has recurring patterns
+    # Phase 5: Essential patterns are excluded — user said "don't cancel these"
+    non_essential_patterns = [p for p in recurring_patterns if not p.is_essential]
     if (
         definition.category == CheatCodeCategory.save_money
         and definition.code == "CC-001"
-        and recurring_patterns
+        and non_essential_patterns
     ):
         score += 20
-        confidence = "high" if len(recurring_patterns) >= 3 else "medium"
+        confidence = "high" if len(non_essential_patterns) >= 3 else "medium"
         template_key = "subscription_cancel"
-        template_inputs["recurring_count"] = len(recurring_patterns)
+        template_inputs["recurring_count"] = len(non_essential_patterns)
 
     # Spending reduction: bonus if category has high spend
     if definition.category == CheatCodeCategory.reduce_spending:

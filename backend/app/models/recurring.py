@@ -24,14 +24,22 @@ class Confidence(str, enum.Enum):
 
 
 class RecurringPattern(TimestampMixin, Base):
+    """Recurring charge pattern — detected from transactions or manually created.
+
+    Phase 5: Bills & Subscriptions are views over this model.
+    - is_manual: user-created bill (not detected from transactions)
+    - is_essential: suppresses cancellation recommendations for this pattern
+    - label: user-friendly name (e.g. "Netflix", "Rent")
+    """
+
     __tablename__ = "recurring_patterns"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=generate_uuid)
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id"), nullable=False, index=True
     )
-    merchant_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("merchants.id"), nullable=False
+    merchant_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("merchants.id"), nullable=True
     )
     category_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("categories.id"), nullable=True
@@ -55,3 +63,8 @@ class RecurringPattern(TimestampMixin, Base):
         DateTime(timezone=True), nullable=True
     )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    # Phase 5: Bills & Subscriptions fields
+    is_manual: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_essential: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    label: Mapped[str | None] = mapped_column(String(255), nullable=True)
