@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from app.config import settings
 from app.core.errors import register_error_handlers
 from app.core.middleware import RequestIDMiddleware
-from app.routers import auth, consent, user
+from app.routers import accounts, auth, consent, money_graph, recurring, transactions, user
 
 app = FastAPI(
     title=settings.app_name,
@@ -22,6 +22,10 @@ register_error_handlers(app)
 app.include_router(auth.router)
 app.include_router(consent.router)
 app.include_router(user.router)
+app.include_router(accounts.router)
+app.include_router(transactions.router)
+app.include_router(recurring.router)
+app.include_router(money_graph.router)
 
 
 @app.get("/health")
