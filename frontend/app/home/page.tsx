@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, isApiError, hasToken } from "@/lib/api";
@@ -31,12 +31,7 @@ export default function HomePage() {
   const [requestId, setRequestId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!hasToken()) { router.replace("/login"); return; }
-    checkOnboardingAndLoad();
-  }, [router]);
-
-  async function checkOnboardingAndLoad() {
+  const checkOnboardingAndLoad = useCallback(async function checkOnboardingAndLoad() {
     try {
       // Check onboarding state — redirect if not complete
       const { data: state } = await api.get("/onboarding/state");
@@ -69,7 +64,12 @@ export default function HomePage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [router]);
+
+  useEffect(() => {
+    if (!hasToken()) { router.replace("/login"); return; }
+    checkOnboardingAndLoad();
+  }, [checkOnboardingAndLoad, router]);
 
   if (loading) return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
 

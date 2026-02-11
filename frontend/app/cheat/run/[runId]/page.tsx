@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { api, isApiError, hasToken } from "@/lib/api";
 import { TID } from "@/lib/testids";
@@ -38,12 +38,7 @@ export default function RunPage() {
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState(false);
 
-  useEffect(() => {
-    if (!hasToken()) { router.replace("/login"); return; }
-    loadRun();
-  }, [runId]);
-
-  async function loadRun() {
+  const loadRun = useCallback(async function loadRun() {
     try {
       const { data } = await api.get(`/cheat-codes/runs/${runId}`);
       setRun(data);
@@ -59,7 +54,12 @@ export default function RunPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [runId]);
+
+  useEffect(() => {
+    if (!hasToken()) { router.replace("/login"); return; }
+    loadRun();
+  }, [loadRun, router]);
 
   async function completeStep1() {
     setError("");
