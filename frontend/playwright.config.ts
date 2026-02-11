@@ -9,6 +9,18 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
+    launchOptions: {
+      executablePath:
+        "/root/.cache/ms-playwright/chromium-1194/chrome-linux/chrome",
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--headless=new",
+        "--no-zygote",
+      ],
+    },
   },
   reporter: [["list"], ["html", { open: "never" }]],
 });

@@ -2,64 +2,55 @@ import { test, expect } from "@playwright/test";
 
 const WEB = process.env.WEB_BASE_URL || "http://localhost:3000";
 
-// If your app uses different labels, change selectors here (ONLY HERE).
+// All selectors use data-testid attributes from the frozen contract.
 const SEL = {
-  registerLink: 'a:has-text("Register")',
-  loginLink: 'a:has-text("Login")',
-  emailInput: 'input[name="email"]',
-  passwordInput: 'input[name="password"]',
-  submitAuth: 'button[type="submit"]',
+  emailInput: '[data-testid="auth-email"]',
+  passwordInput: '[data-testid="auth-password"]',
+  submitAuth: '[data-testid="auth-submit"]',
 
-  onboardingTitle: 'h1:has-text("Onboarding")',
-
-  // Wizard step labels/buttons
-  stepConsent: "text=Consent",
-  stepAccount: "text=Account",
-  stepTransactions: "text=Transactions",
-  stepGoals: "text=Goals",
-  stepTop3: "text=Top 3",
+  onboardingTitle: '[data-testid="onboarding-title"]',
 
   // Consent toggles (required)
-  consentDataAccess: 'input[name="consent_data_access"]',
-  consentTerms: 'input[name="consent_terms_of_service"]',
-  consentAiMemory: 'input[name="consent_ai_memory"]',
+  consentDataAccess: '[data-testid="consent-data-access"]',
+  consentTerms: '[data-testid="consent-terms"]',
+  consentAiMemory: '[data-testid="consent-ai-memory"]',
 
-  continueBtn: 'button:has-text("Continue")',
+  continueBtn: '[data-testid="onboarding-continue"]',
 
   // Account form
-  acctName: 'input[name="account_name"]',
-  acctInstitution: 'input[name="institution_name"]',
-  acctBalance: 'input[name="current_balance"]',
+  acctName: '[data-testid="account-name"]',
+  acctInstitution: '[data-testid="account-institution"]',
+  acctBalance: '[data-testid="account-balance"]',
 
   // Transactions
-  addSampleTxnsBtn: 'button:has-text("Add sample transactions")',
+  addSampleTxnsBtn: '[data-testid="txns-add-sample"]',
 
   // Goals
-  goalSelect: 'select[name="goal_type"]',
-  constraintInput: 'input[name="constraint_label"]',
-  addConstraintBtn: 'button:has-text("Add constraint")',
+  goalSelect: '[data-testid="goal-type"]',
+  constraintInput: '[data-testid="constraint-label"]',
+  addConstraintBtn: '[data-testid="constraint-add"]',
 
   // Top 3 cards
   top3Card: '[data-testid="top3-card"]',
-  top3Confidence: '[data-testid="confidence"]',
-  top3QuickWin: '[data-testid="quick-win-badge"]',
-  top3Why: 'button:has-text("Why this?")',
-  startCheatBtn: 'button:has-text("Start")',
+  top3Confidence: '[data-testid="top3-confidence"]',
+  top3QuickWin: '[data-testid="top3-quickwin"]',
+  top3Why: '[data-testid="top3-why"]',
+  startCheatBtn: '[data-testid="top3-start"]',
 
   // Run page
   runTitle: '[data-testid="run-title"]',
-  completeStep0Btn: 'button:has-text("Complete step 1")',
-  firstWinBanner: "text=First Win achieved",
+  completeStep0Btn: '[data-testid="run-complete-step-1"]',
+  firstWinBanner: '[data-testid="first-win-banner"]',
 
   // Nav
-  navHome: 'a:has-text("Home")',
-  navSettings: 'a:has-text("Settings")',
+  navHome: '[data-testid="nav-home"]',
+  navSettings: '[data-testid="nav-settings"]',
 
   // Settings
-  exportBtn: 'button:has-text("Export data")',
-  exportDownloadLink: 'a:has-text("Download")', // if you show link after export
-  deleteBtn: 'button:has-text("Delete account")',
-  confirmDeleteBtn: 'button:has-text("Confirm delete")',
+  exportBtn: '[data-testid="settings-export"]',
+  exportDownloadLink: '[data-testid="settings-export-download"]',
+  deleteBtn: '[data-testid="settings-delete"]',
+  confirmDeleteBtn: '[data-testid="settings-delete-confirm"]',
 
   // Error UI
   errorBox: '[data-testid="error-box"]',

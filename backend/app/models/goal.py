@@ -14,6 +14,7 @@ class GoalType(str, enum.Enum):
     reduce_spending = "reduce_spending"
     pay_off_debt = "pay_off_debt"
     build_emergency_fund = "build_emergency_fund"
+    build_buffer = "build_buffer"
     budget_better = "budget_better"
     other = "other"
 
