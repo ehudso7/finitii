@@ -28,7 +28,7 @@ export default function LoginPage() {
         setError(err.message);
         setRequestId(err.requestId);
       } else {
-        setError("An unexpected error occurred");
+        setError(err instanceof Error ? err.message : "An unexpected error occurred");
       }
     } finally {
       setLoading(false);

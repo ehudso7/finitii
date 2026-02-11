@@ -8,6 +8,14 @@
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
+// Warn if the API base URL was not set at build time (common Vercel misconfiguration)
+if (typeof window !== "undefined" && BASE === "http://localhost:8000") {
+  console.warn(
+    "[Finitii] NEXT_PUBLIC_API_BASE_URL is not set — API calls will go to localhost:8000. " +
+    "Set this env var in your Vercel project settings and redeploy."
+  );
+}
+
 export interface ApiError {
   message: string;
   requestId: string | null;
@@ -22,7 +30,7 @@ function getToken(): string | null {
 export function setToken(token: string) {
   localStorage.setItem("session_token", token);
   // Also set cookie for Next.js middleware auth redirect
-  document.cookie = `session_token=${token}; path=/; SameSite=Strict`;
+  document.cookie = `session_token=${token}; path=/; SameSite=Lax`;
 }
 
 export function clearToken() {
@@ -47,10 +55,24 @@ async function request<T = any>(
     headers["X-Session-Token"] = token;
   }
 
-  const res = await fetch(`${BASE}${path}`, {
-    ...opts,
-    headers,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      ...opts,
+      headers,
+    });
+  } catch {
+    // fetch throws TypeError on network failure (CORS block, DNS, offline, wrong URL)
+    const hint = BASE.includes("localhost")
+      ? " Check that NEXT_PUBLIC_API_BASE_URL is set to your backend URL."
+      : "";
+    const err: ApiError = {
+      message: `Cannot reach the server.${hint}`,
+      requestId: null,
+      status: 0,
+    };
+    throw err;
+  }
 
   const requestId =
     res.headers.get("x-request-id") || res.headers.get("X-Request-ID");
