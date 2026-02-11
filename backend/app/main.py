@@ -1,8 +1,10 @@
 import logging
 import warnings
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.config import settings
 from app.core.errors import register_error_handlers
@@ -26,22 +28,44 @@ if not settings.is_production and settings.secret_key == "change-me-in-productio
 
 logger = logging.getLogger("finitii")
 
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    """Create database tables on startup if they don't exist."""
+    from app.models.base import Base
+    # Import all models so Base.metadata is populated
+    from app.models import (  # noqa: F401
+        user, consent as consent_model, audit, session, account, merchant,
+        category, transaction, recurring, onboarding, goal, cheat_code,
+        forecast, coach_memory, learn, practice, vault as vault_model,
+    )
+    engine = create_async_engine(settings.database_url)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    await engine.dispose()
+    logger.info("Database tables verified/created")
+    yield
+
+
 app = FastAPI(
     title=settings.app_name,
     version="0.1.0",
     docs_url="/docs" if settings.debug else None,
     redoc_url="/redoc" if settings.debug else None,
+    lifespan=lifespan,
 )
 
 # Middleware — order matters (last added = first executed)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["x-request-id"],
-)
+cors_kwargs = {
+    "allow_origins": settings.cors_origins_list,
+    "allow_credentials": True,
+    "allow_methods": ["*"],
+    "allow_headers": ["*"],
+    "expose_headers": ["x-request-id"],
+}
+if settings.cors_allow_origin_regex:
+    cors_kwargs["allow_origin_regex"] = settings.cors_allow_origin_regex
+app.add_middleware(CORSMiddleware, **cors_kwargs)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(AccessLogMiddleware)
 app.add_middleware(RequestIDMiddleware)
