@@ -17,7 +17,18 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
 
+    # CORS — comma-separated origins (e.g. "https://app.yourdomain.com")
+    cors_allow_origins: str = "http://localhost:3000"
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_allow_origins.split(",") if o.strip()]
+
+    @property
+    def is_production(self) -> bool:
+        return self.app_env == "production"
 
 
 settings = Settings()

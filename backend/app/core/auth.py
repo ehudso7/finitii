@@ -192,4 +192,7 @@ async def get_current_user(
             detail="User not found or inactive",
         )
 
+    # Store user_id on request state for access logging
+    request.state.user_id = str(user.id)
+
     return user
