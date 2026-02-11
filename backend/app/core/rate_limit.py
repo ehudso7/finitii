@@ -55,6 +55,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if not settings.is_production:
             return await call_next(request)
 
+        # Skip CORS preflight requests — they shouldn't consume rate limit tokens
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         path = request.url.path
         client_ip = request.client.host if request.client else "unknown"
 

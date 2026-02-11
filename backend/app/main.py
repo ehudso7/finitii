@@ -55,7 +55,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Middleware — order matters (last added = first executed)
+# Middleware — order matters (last added = outermost = first to execute)
+# Correct order: CORS outermost so all responses get CORS headers (including 429s)
 cors_kwargs = {
     "allow_origins": settings.cors_origins_list,
     "allow_credentials": True,
@@ -65,10 +66,10 @@ cors_kwargs = {
 }
 if settings.cors_allow_origin_regex:
     cors_kwargs["allow_origin_regex"] = settings.cors_allow_origin_regex
-app.add_middleware(CORSMiddleware, **cors_kwargs)
-app.add_middleware(RateLimitMiddleware)
-app.add_middleware(AccessLogMiddleware)
 app.add_middleware(RequestIDMiddleware)
+app.add_middleware(AccessLogMiddleware)
+app.add_middleware(RateLimitMiddleware)
+app.add_middleware(CORSMiddleware, **cors_kwargs)
 
 # Error handlers
 register_error_handlers(app)
