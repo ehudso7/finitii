@@ -17,7 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from httpx import AsyncClient
 
-from app.models.account import Account
+from app.models.account import Account, AccountType
 from app.models.audit import AuditLogEvent
 from app.models.cheat_code import (
     CheatCodeCategory,
@@ -84,7 +84,7 @@ async def _build_rich_user(db: AsyncSession, user: User) -> dict:
         user_id=user.id,
         institution_name="Test Bank",
         account_name="Checking",
-        account_type="checking",
+        account_type=AccountType.checking,
         currency="USD",
     )
     db.add(account)

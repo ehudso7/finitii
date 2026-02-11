@@ -46,6 +46,17 @@ def _serialize_decimal(d: Decimal | None) -> str | None:
     return str(d)
 
 
+def _serialize_enum(val) -> str | None:
+    """Extract string value from an enum or pass through a raw string.
+
+    SQLAlchemy with native_enum=False may return raw strings from the DB
+    instead of reconstructing the Python enum, depending on session state.
+    """
+    if val is None:
+        return None
+    return val.value if hasattr(val, "value") else str(val)
+
+
 async def export_user_data(
     db: AsyncSession,
     user_id: uuid.UUID,
@@ -64,7 +75,7 @@ async def export_user_data(
     user_data = {
         "id": _serialize_uuid(user.id),
         "email": user.email,
-        "status": user.status.value,
+        "status": _serialize_enum(user.status),
         "created_at": _serialize_datetime(user.created_at),
         "updated_at": _serialize_datetime(user.updated_at),
         "deleted_at": _serialize_datetime(user.deleted_at),
@@ -80,7 +91,7 @@ async def export_user_data(
     consent_data = [
         {
             "id": _serialize_uuid(c.id),
-            "consent_type": c.consent_type.value,
+            "consent_type": _serialize_enum(c.consent_type),
             "granted": c.granted,
             "granted_at": _serialize_datetime(c.granted_at),
             "revoked_at": _serialize_datetime(c.revoked_at),
@@ -99,7 +110,7 @@ async def export_user_data(
             "id": _serialize_uuid(a.id),
             "institution_name": a.institution_name,
             "account_name": a.account_name,
-            "account_type": a.account_type,
+            "account_type": _serialize_enum(a.account_type),
             "currency": a.currency,
         }
         for a in result.scalars().all()
@@ -118,7 +129,7 @@ async def export_user_data(
             "amount": _serialize_decimal(t.amount),
             "currency": t.currency,
             "transaction_date": _serialize_datetime(t.transaction_date),
-            "transaction_type": t.transaction_type.value,
+            "transaction_type": _serialize_enum(t.transaction_type),
             "normalized_description": t.normalized_description,
         }
         for t in result.scalars().all()
@@ -131,8 +142,8 @@ async def export_user_data(
     recurring_data = [
         {
             "id": _serialize_uuid(r.id),
-            "frequency": r.frequency.value,
-            "confidence": r.confidence.value,
+            "frequency": _serialize_enum(r.frequency),
+            "confidence": _serialize_enum(r.confidence),
             "estimated_amount": _serialize_decimal(r.estimated_amount),
             "is_active": r.is_active,
             "is_manual": r.is_manual,
@@ -150,7 +161,7 @@ async def export_user_data(
         {
             "id": _serialize_uuid(g.id),
             "title": g.title,
-            "goal_type": g.goal_type.value,
+            "goal_type": _serialize_enum(g.goal_type),
             "target_amount": _serialize_decimal(g.target_amount),
             "is_active": g.is_active,
         }
@@ -180,7 +191,7 @@ async def export_user_data(
     onboarding_data = None
     if onboarding:
         onboarding_data = {
-            "current_step": onboarding.current_step.value if hasattr(onboarding.current_step, 'value') else str(onboarding.current_step),
+            "current_step": _serialize_enum(onboarding.current_step),
             "consent_completed_at": onboarding.consent_completed_at.isoformat() if onboarding.consent_completed_at else None,
             "account_completed_at": onboarding.account_completed_at.isoformat() if onboarding.account_completed_at else None,
             "goals_completed_at": onboarding.goals_completed_at.isoformat() if onboarding.goals_completed_at else None,
@@ -211,7 +222,7 @@ async def export_user_data(
         {
             "id": _serialize_uuid(r.id),
             "cheat_code_id": _serialize_uuid(r.cheat_code_id),
-            "status": r.status.value,
+            "status": _serialize_enum(r.status),
             "started_at": _serialize_datetime(r.started_at),
             "completed_at": _serialize_datetime(r.completed_at),
         }
@@ -242,7 +253,7 @@ async def export_user_data(
             "id": _serialize_uuid(f.id),
             "safe_to_spend_today": _serialize_decimal(f.safe_to_spend_today),
             "safe_to_spend_week": _serialize_decimal(f.safe_to_spend_week),
-            "confidence": f.confidence.value if hasattr(f.confidence, 'value') else str(f.confidence),
+            "confidence": _serialize_enum(f.confidence),
             "urgency_score": f.urgency_score,
             "computed_at": _serialize_datetime(f.computed_at),
         }
@@ -257,8 +268,8 @@ async def export_user_data(
     coach_memory_data = None
     if coach_memory:
         coach_memory_data = {
-            "tone": coach_memory.tone.value,
-            "aggressiveness": coach_memory.aggressiveness.value,
+            "tone": _serialize_enum(coach_memory.tone),
+            "aggressiveness": _serialize_enum(coach_memory.aggressiveness),
         }
 
     # Lesson progress (Phase 7)
@@ -269,7 +280,7 @@ async def export_user_data(
         {
             "id": _serialize_uuid(lp.id),
             "lesson_id": _serialize_uuid(lp.lesson_id),
-            "status": lp.status.value,
+            "status": _serialize_enum(lp.status),
             "completed_sections": lp.completed_sections,
         }
         for lp in result.scalars().all()
@@ -283,7 +294,7 @@ async def export_user_data(
         {
             "id": _serialize_uuid(sr.id),
             "scenario_id": _serialize_uuid(sr.scenario_id),
-            "status": sr.status.value,
+            "status": _serialize_enum(sr.status),
             "confidence": sr.confidence,
             "plan_generated": sr.plan_generated,
         }
@@ -300,7 +311,7 @@ async def export_user_data(
             "filename": v.filename,
             "content_type": v.content_type,
             "file_size": v.file_size,
-            "item_type": v.item_type.value,
+            "item_type": _serialize_enum(v.item_type),
             "description": v.description,
             "transaction_id": _serialize_uuid(v.transaction_id),
             "uploaded_at": _serialize_datetime(v.uploaded_at),
