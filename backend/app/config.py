@@ -19,6 +19,8 @@ class Settings(BaseSettings):
 
     # CORS — comma-separated origins (e.g. "https://app.yourdomain.com")
     cors_allow_origins: str = "http://localhost:3000"
+    # Regex for CORS (e.g. "https://.*\\.vercel\\.app") — optional
+    cors_allow_origin_regex: str = ""
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
